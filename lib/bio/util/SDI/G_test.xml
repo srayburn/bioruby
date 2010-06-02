@@ -1,0 +1,32 @@
+<phyloxml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.phyloxml.org" xsi:schemaLocation="http://www.phyloxml.org http://www.phyloxml.org/1.10/phyloxml.xsd">
+	<phylogeny rooted="true">
+		<name>G</name>
+		<clade>
+			<clade><clade>
+				<clade>
+					
+					<taxonomy>
+					<id> Human </id>
+					</taxonomy>
+				</clade>
+				<clade>
+					<taxonomy>
+					<id> Yeast </id>
+					</taxonomy>
+				</clade>
+			</clade>
+			<clade>
+				<taxonomy>
+				<id> Nematoda </id>
+				</taxonomy>
+			</clade></clade>
+			<clade>
+
+					<taxonomy> <id> Human </id>
+					</taxonomy>
+				</clade>
+								
+		
+		</clade>
+	</phylogeny>
+</phyloxml>
