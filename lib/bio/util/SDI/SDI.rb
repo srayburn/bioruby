@@ -21,8 +21,8 @@ class SDI
 
   def initialize
     # load phyloxml trees (assumption: each file contains only 1 tree)
-    @gene_tree = Bio::PhyloXML::Parser.open('G_test.xml')
-    @species_tree = Bio::PhyloXML::Parser.open('S_test.xml')
+    @gene_tree = Bio::PhyloXML::Parser.open('species.xml')
+    @species_tree = Bio::PhyloXML::Parser.open('gene.xml')
     @gene_tree = @gene_tree.next_tree
     @species_tree = @species_tree.next_tree
     
@@ -33,7 +33,7 @@ class SDI
     
     # test subset
     # need to make exception, with boolean returning functions
-    isSubset(@species_tree, @gene_tree)
+    isSubset?(@species_tree, @gene_tree)
     
     # map
     @gene_mapping = {}
@@ -46,44 +46,70 @@ class SDI
     puts @gene_node_map
   end #initialize
 
-  def postOrder(tree, map, spec_nodes)
-    puts tree.class
-    root = tree.root
-    nextNodes = tree.children(root)
+  def postOrder #(g_tree, s_tree, map, spec_nodes, gene_nodes)
+    puts @gene_tree.class
+    puts @species_tree.class
+    root = @gene_tree.root
+    nextNodes = @gene_tree.children(root)
     nextNodes.each { |n|
-      index = _postOrder(tree, n, index, map, spec_nodes)
+      index = _postOrder(n) 
     }
     # this is how forester does it…
-    a = map[getNodeName(nextNodes[0], index)]
-    b = map[getNodeName(nextNodes[1])]
+    a = @gene_mapping[nextNodes[0]]
+    b = @gene_mapping[nextNodes[1]]
     
-    map[root] = LCA(spec_nodes[a], spec_nodes[b])
-    puts map[root]
-    
+    @gene_mapping[root] = @species_numbering[@species_tree.lowest_common_ancestor(@spec_node_map[a], @spec_node_map[b])]
+    #puts @gene_mapping[root]
+    @gene_node_map[@gene_mapping[root]] = root
+    #puts @gene_node_map[@gene_mapping[root]]
+    if (@gene_mapping[root] == @gene_mapping[nextNodes[0]]) || (@gene_mapping[root] == @gene_mapping[nextNodes[1]])
+      puts "duplication"        
+      root.events = Bio::PhyloXML::Events.new
+      root.events.duplications = 1
+      puts root.events.speciations
+    else
+      puts "speciation"
+      root.events = Bio::PhyloXML::Events.new
+      root.events.speciations = 1
+      puts root.events.speciations
+    end #if
      
    
 
   end #postorder
 
-  def _postOrder(tree, node, index, map, spec_nodes, gene_nodes)
+  def _postOrder(node) #tree, s_tree, node,map, spec_nodes, gene_nodes)
      
-    nextNodes = tree.children(node)
+    nextNodes = @gene_tree.children(node)
     nextNodes.each { |n|
-      index = _postOrder(tree, n, map, spec_nodes)
+      index = _postOrder(n) # tree, s_tree, n, map, spec_nodes, gene_nodes)
     }
     if nextNodes[0] != nil:
-      a = map[getNodeName(nextNodes[0], index)]
+      a = @gene_mapping[nextNodes[0]]
       if nextNodes[1] != nil:
-        b = map[getNodeName(nextNodes[1], index)]
+        b = @gene_mapping[nextNodes[1]]
       else 
-        b = map[getNodeName(nextNodes[0], index)]
+        b = @gene_mapping[nextNodes[0]]
       end #if  
     
-      map[node.getNodeName] = LCA(spec_nodes[a], spec_nodes[b])
-      puts map[getNodeName(node), index]
+      @gene_mapping[node] = @species_numbering[@species_tree.lowest_common_ancestor(@spec_node_map[a], @spec_node_map[b])]
+      @gene_node_map[gene_mapping[node]] = node
+      if (@gene_mapping[node] == @gene_mapping[nextNodes[0]]) || (@gene_mapping[node] == @gene_mapping[nextNodes[1]])
+        puts "duplication"
+        node.events = Bio::PhyloXML::Events.new
+        node.events.duplications = 1
+        puts node.events.duplications
+      else
+        puts "speciation"
+        node.events = Bio::PhyloXML::Events.new
+        node.events.speciations = 1
+        puts node.events.speciations
+      end #if
+
     end #if
-    index += 1
-    return index
+    #puts index
+    #index += 1
+    #return index
 
   end #_postOrder
 
@@ -94,21 +120,34 @@ class SDI
     
   end #isRooted
  
-  def isSubset(superset, subset)
+  def isSubset?(superset, subset)
     superset_leaves = superset.leaves
-    species = []
-    superset_leaves.each { |node|
-      species[species.length] = node.taxonomies[0].taxonomy_id.value
-    }
 
     subset_leaves = subset.leaves
+    
     subset_leaves.each { |node|
-      key = node.taxonomies[0].taxonomy_id.value
-      puts species.find { |spec| spec == key }
+      puts "NODE OUTER:"
+      puts node.inspect
+      inner = false
+      superset_leaves.each{ |node1|
+        puts "NODE INNER"
+        puts node1.inspect
+        inner = false
+        if nodeEqual?(node, node1)
+          inner = true
+          break
+        end #if
+      }
+      if !inner
+        puts "Error"
+        exit
+      end #if
+    }
+          #puts species.find { |spec| spec == key }
 	#if node.taxonomies[0].taxonomy_id.value in species:
 	#	puts "ok"
 	#end
-    }
+    
     end #isSubset
  
   def getNodeName(node, index)
@@ -116,7 +155,7 @@ class SDI
     if node.taxonomies[0] == nil:
       name = index
     else
-      name = node.taxonomies[0].taxonomy_id.value
+      name = node.taxonomies[0].code
     end #if
   end #getNodeName
 
@@ -124,10 +163,10 @@ class SDI
     root = tree.root
     #puts root.class
     index = 1
-    name = getNodeName(root, index)
-
+    #name = getNodeName(root, index)
+    #key = root.taxonomies[0].taxonomy_id 
     map = {}
-    map[name] = index
+    map[root] = index
     name_node_map[index] = root
    # puts index.class
     #puts 1.class
@@ -135,32 +174,28 @@ class SDI
     
     nextNodes = tree.children(root)
     nextNodes.each { |n|
-      index, name_node_map = _preOrder(tree, n, index, map, name_node_map)
+      index, map, name_node_map = _preOrder(tree, n, index, map, name_node_map)
     }
    
     return map, name_node_map
   end
  
   def _preOrder(tree, node, index, map, name_node_map)
-    #puts node.taxonomies
-    name = getNodeName(node, index)
-    map[name] = index
-    name_node_map[index] = node
-    #puts index
-    #puts 1.class
-     index = index + 1
    
-   # puts node
+    map[node] = index
+    name_node_map[index] = node
+    index = index + 1
+   
     nextNodes = tree.children(node)
-  #  puts nextNodes
     nextNodes.each{ |n|
-      index, name_node_map = _preOrder(tree, n, index, map, name_node_map)
+      index, map, name_node_map = _preOrder(tree, n, index, map, name_node_map)
     }
-    return index, name_node_map
+    return index, map, name_node_map
   end
 
   def initializeMapping(spec_tree, gene_tree)
-    species_numbering = {}
+    
+    species_numbering = {} 
     spec_node_map = {}
     species_numbering, spec_node_map = preOrder(spec_tree, spec_node_map)
     puts species_numbering
@@ -168,14 +203,64 @@ class SDI
     gene_node_map = {}
     index = 0
     gene_tree.leaves.each{ |n|
-      name = getNodeName(n, index)
-      index += 1
-      gene_mapping[name] = species_numbering[name]
-      gene_node_map[gene_mapping[name]] = n
+      species_tree.leaves.each{ |s|
+        if nodeEqual?(n, s)
+          gene_mapping[n] = species_numbering[s]
+          gene_node_map[species_numbering[s]] = n
+          puts "equal"
+        end # if
+       }
+       if (gene_mapping[n] == nil)
+         puts "Error mapping"
+         exit
+       end # if
     }
  
     return gene_mapping, species_numbering, spec_node_map, gene_node_map
   end
+
+  def nodeEqual?(node1, node2)
+    puts node1.taxonomies[0]
+    puts node2.taxonomies[0]
+    if (node1.taxonomies[0].taxonomy_id != nil) && (node2.taxonomies[0].taxonomy_id != nil)
+      if (node1.taxonomies[0].taxonomy_id.provider != nil) && (node2.taxonomies[0].taxonomy_id.provider != nil)
+        if node1.taxonomies[0].taxonomy_id.value == node2.taxonomies[0].taxonomy_id.value
+          return true
+        else 
+          return false
+        end # if
+      end #if
+    elsif (node1.taxonomies[0].code != nil) && (node2.taxonomies[0].code != nil) 
+      if node1.taxonomies[0].code == node2.taxonomies[0].code
+        return true
+      else 
+        return false
+      end #if
+    elsif (node1.taxonomies[0].scientific_name != nil) && (node2.taxonomies[0].scientific_name != nil)
+      if node1.taxonomies[0].scientific_name == node2.taxonomies[0].scientific_name
+        return true
+      else 
+        return false
+      end #if
+    elsif (node1.taxonomies[0].common_names[0] != nil) && (node2.taxonomies[0].common_names[0] != nil)
+      if node1.taxonomies[0].common_names[0] == node2.taxonomies[0].common_names[0]
+        return true
+      else 
+        return false
+      end # if
+    else 
+      puts "Error"
+      exit
+    end #if
+
+  end #nodeEqual?
+
+  def writeUpdatedGeneTreePhyloXML(filename)
+    # Create new phyloxml writer
+    writer = Bio::PhyloXML::Writer.new(filename)
+    # Write tree to the file tree.xml
+    writer.write(@gene_tree)
+  end #writeUpdatedGeneTreePhyloXML
 
   private :_preOrder
   private :_postOrder
@@ -183,5 +268,9 @@ class SDI
 end
 
 sdi = SDI.new
-puts 
-sdi.postOrder(sdi.gene_tree, sdi.gene_mapping, sdi.spec_node_map)
+sdi.postOrder #(sdi.gene_tree, sdi.species_tree, sdi.gene_mapping, sdi.spec_node_map, sdi.gene_node_map)
+root = sdi.gene_tree.root
+puts root.class
+puts root.events
+puts root.events.speciations
+sdi.writeUpdatedGeneTreePhyloXML('test_updated_function.xml')
