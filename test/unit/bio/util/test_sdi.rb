@@ -7,49 +7,124 @@
 #
 
 #  load libraries required
+#load 'test/bioruby_test_helper.rb'
+require 'pathname'
+load Pathname.new(File.join(File.dirname(__FILE__), ['..'] * 3,
+			'bioruby_test_helper.rb')).cleanpath.to_s
 require 'test/unit'
 require 'bio/db/phyloxml/phyloxml_parser'
+require 'bio/util/SDI/SDI'
 
 module Bio
+class TestSDIData
+  SDI_TEST_DATA = Pathname.new(File.join(BioRubyTestDataPath, 'SDI')).cleanpath.to_s
+  def self.gene_xml
+    File.join SDI_TEST_DATA, 'gene.xml'
+  end
+  def self.species_xml
+    File.join SDI_TEST_DATA, 'species.xml'
+  end
+  def self.results_xml
+    File.join SDI_TEST_DATA, 'test_results.xml'
+  end
+  def self.gene_made_up_xml 
+    File.join SDI_TEST_DATA, 'test_G.xml'
+  end
+  def self.species_made_up_xml
+    File.join SDI_TEST_DATA, 'test_S.xml'
+  end
+end # class TestSDIData
 
-  class TestSDI_class_methods < Test::Unit::TestCase
+class TestSDI_class_methods < Test::Unit::TestCase
+  
+  def setup
+    @g = Bio::PhyloXML::Parser.open(TestSDIData.gene_xml)
+    @g = @g.next_tree
+    @s = Bio::PhyloXML::Parser.open(TestSDIData.species_xml)
+    @s = @s.next_tree
+  end
 
-    def test_load
-    end
+  def test_new
+    sdi = Bio::SDI.new(@g, @s)
+    assert_instance_of(Bio::PhyloXML::Tree, sdi.gene_tree)
+    assert_instance_of(Bio::PhyloXML::Tree, sdi.species_tree)
+  end
+  
+  def test_isRooted
+    sdi = Bio::SDI.new(@g, @s)
+    assert(sdi.isRooted?(@g))
+    assert(sdi.isRooted?(@s))
+  end
+ 
+  def test_isSubset
+    sdi = Bio::SDI.new(@g, @s)
+    assert(sdi.isSubset?(@s, @g))
+  end
+
+  def test_nodeEqual  
+    sdi = Bio::SDI.new(@g, @s)
+    node1 = sdi.gene_tree.children(sdi.gene_tree.children(sdi.gene_tree.root)[1])[0]
+    node2 = sdi.gene_tree.children(sdi.gene_tree.root)[0]
+    assert(!(sdi.nodeEqual?(node1, node2)))
     
-    def test_isRooted
+    node1 = nil
+    node2 = nil
+    leaves = sdi.gene_tree.leaves
+    leaves.each{ |l|
+      if l.taxonomies[0].code == 'MOUSE'
+        if node1 == nil
+          node1 = l
+        else 
+          node2 = l
+          break
+        end
+      end
+    }
+    assert(sdi.nodeEqual?(node1,node2))
+    node1 = sdi.gene_tree.root
+    node2 = sdi.gene_tree.children(sdi.gene_tree.root)[1]
+    assert_raise RuntimeError do
+      sdi.nodeEqual?(node1,node2)
     end
- 
-    def test_isSubset
-    end
+      
+  end
+  
+  def test_initializeMapping
+    sdi = Bio::SDI.new(@g, @s)
+    sdi.initializeMapping
+    leaves = sdi.species_tree.leaves
+     leaves.each { |l|
+      max = sdi.species_tree.number_of_nodes + 1
+      while l != sdi.species_tree.root 
+        map = sdi.species_numbering[l]
+        assert( map < max)
+        assert_equal(l, sdi.spec_node_map[sdi.species_numbering[l]])
+        max = map
+        l = sdi.species_tree.parent(l)
+      end
+      assert(sdi.species_numbering[sdi.species_tree.root] == 1)
+    }
+    assert_not_nil(sdi.gene_mapping)  
+  end
 
-    def test_preOrder
-    end
- 
-    def test_numberNodes
-    end
+  def test_computeMappping
+    sdi = Bio::SDI.new(@g, @s)
+    sdi.initializeMapping
+    sdi.computeMapping
+    @actual_results = Bio::PhyloXML::Parser.open(TestSDIData.results_xml)
+    @actual_results = @actual_results.next_tree
+    a_leaves = @actual_results.leaves
+    t_leaves = sdi.gene_tree.leaves
+    assert_equal(@actual_results.root.events.speciations, sdi.gene_tree.root.events.speciations)
+    assert_equal(@actual_results.root.events.duplications, sdi.gene_tree.root.events.duplications)
+    a_children = @actual_results.children(@actual_results.root)
+    t_children = sdi.gene_tree.children(sdi.gene_tree.root)
+          
+  
+  end
 
-    def test_map
-    end
-
-    def test_recursion
-    end
- 
-    def test_postOrder
-    end
-
-    def test_compare
-    end
-
-    def test_getParent
-    end
-
-    def test_updateTree
-    end
-
-    def test_finishUp
-    end
+  
 
   end #class TestSDI_class_methods
 
- 
+ end

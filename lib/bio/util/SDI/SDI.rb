@@ -44,7 +44,7 @@
 
 require 'bio/db/phyloxml/phyloxml_parser'
 
-
+module Bio
 class SDI
 
   # rooted binary gene tree
@@ -218,12 +218,12 @@ class SDI
   # Tests to see if nodes are equivalent. Checks taxonomy id first, then code, then scientific name, then common name.
   # Raises fatal exception if nodes do not have enough information to match.
   def nodeEqual?(node1, node2)
-  
+    if (!node1.taxonomies.empty?) && (!node2.taxonomies.empty?)
     # compare taxonomy id if exists and provider is the same
     if (node1.taxonomies[0].taxonomy_id != nil) && (node2.taxonomies[0].taxonomy_id != nil)
       if (node1.taxonomies[0].taxonomy_id.provider != nil) && (node2.taxonomies[0].taxonomy_id.provider != nil)
         if node1.taxonomies[0].taxonomy_id.value == node2.taxonomies[0].taxonomy_id.value
-          return true
+         return true
         else 
           return false
         end # if
@@ -252,11 +252,11 @@ class SDI
       else 
         return false
       end # if
-  
-    # otherwise, not enough in common to compare
-    else 
-      raise "Nodes must share an identifier to be compared."
+    end #if  
     end #if
+    # otherwise, not enough in common to compare
+    raise "Nodes must share an identifier to be compared."
+    
 
   end #nodeEqual?
 
@@ -296,4 +296,5 @@ class SDI
   private :_initializeSpeciesMap
   private :_computeMapping
 
+end
 end
