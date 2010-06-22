@@ -25,15 +25,21 @@ class SDI
     @species_tree = Bio::PhyloXML::Parser.open(species_filename)
     @gene_tree = @gene_tree.next_tree
     @species_tree = @species_tree.next_tree
-    
+
+    # test trees non-empty
+    if (@gene_tree == nil) || (@species_tree == nil)
+      raise "Gene and Species trees must be non-empty."
+    end #if
+
     # test rooted
-    # need to make exception, with boolean returning functions
-    isRooted?(@gene_tree)
-    isRooted?(@species_tree)
+    if !isRooted?(@gene_tree) || !isRooted?(@species_tree)
+      raise "Gene and Species trees must be rooted."
+    end # if
     
     # test subset
-    # need to make exception, with boolean returning functions
-    isSubset?(@species_tree, @gene_tree)
+    if !isSubset?(@species_tree, @gene_tree)
+      raise "All species in gene tree leaf level must be represented in species tree."
+    end #if
     
     @gene_mapping = {}
     @species_numbering = {}
@@ -119,11 +125,10 @@ class SDI
         end #if
       } #superset_leaves.each
       if !inner
-        puts "Error"
-        exit
+        return false
       end #if
     } #subset_leave.each
-    
+    return true
   end #isSubset?
 
   def initializeMap(tree, name_node_map)
@@ -167,10 +172,6 @@ class SDI
           @gene_node_map[@species_numbering[s]] = n
         end # if
        }
-       if (@gene_mapping[n] == nil)
-         puts "Error mapping"
-         exit
-       end # if
     }
  
   end #initializeMapping
@@ -208,8 +209,7 @@ class SDI
       end # if
   
     else 
-      puts "Error"
-      exit
+      raise "Nodes must share an identifier to be compared."
     end #if
 
   end #nodeEqual?
