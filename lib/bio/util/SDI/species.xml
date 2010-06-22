@@ -2,7 +2,7 @@
 <phyloxml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://www.phyloxml.org http://www.phyloxml.org/1.00/phyloxml.xsd"
   xmlns="http://www.phyloxml.org">
-  <phylogeny rooted="true" rerootable="true">
+  <phylogeny rooted="true" rerootable="false">
      <clade>
         <clade>
            <clade>
@@ -28,13 +28,13 @@
                                       </clade>
                                       <clade>
                                          <taxonomy>
-                                            <code>MOUSE</code>
+                                            <code>HUMAN</code>
                                          </taxonomy>
                                       </clade>
                                    </clade>
                                    <clade>
                                       <taxonomy>
-                                         <code>CIOIN</code>
+                                         <code>CHICK</code>
                                       </taxonomy>
                                    </clade>
                                 </clade>
@@ -46,7 +46,7 @@
                              </clade>
                              <clade>
                                 <taxonomy>
-                                   <code>CHICK</code>
+                                   <code>CIOIN</code>
                                 </taxonomy>
                              </clade>
                           </clade>
@@ -58,7 +58,7 @@
                        </clade>
                        <clade>
                           <taxonomy>
-                             <code>LOTGI</code>
+                             <code>STRPU</code>
                           </taxonomy>
                        </clade>
                     </clade>
@@ -77,7 +77,7 @@
                        </clade>
                        <clade>
                           <taxonomy>
-                             <code>STRPU</code>
+                             <code>LOTGI</code>
                           </taxonomy>
                        </clade>
                     </clade>
