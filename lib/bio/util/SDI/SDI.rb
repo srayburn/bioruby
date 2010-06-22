@@ -58,16 +58,14 @@ class SDI
   # mapping from integer number to node in species tree
   attr_accessor :spec_node_map
 
-  # The parameters are paths to the phyloxml formatted files containing
+  # The parameters are phyloxml tree objects containing
   # the gene tree and the species tree.
   # Raises exception when either tree is empty, unrooted, or 
   # when the species tree does not contain all species in the gene tree.
-  def initialize(gene_filename, species_filename)
-    # load phyloxml trees (assumption: each file contains only 1 tree)
-    @gene_tree = Bio::PhyloXML::Parser.open(gene_filename)
-    @species_tree = Bio::PhyloXML::Parser.open(species_filename)
-    @gene_tree = @gene_tree.next_tree
-    @species_tree = @species_tree.next_tree
+  def initialize(gene_tree, species_tree)
+    # phyloxml trees 
+    @gene_tree = gene_tree
+    @species_tree = species_tree
 
     # Raise exception for empty tree
     if (@gene_tree == nil) || (@species_tree == nil)
@@ -299,4 +297,3 @@ class SDI
   private :_computeMapping
 
 end
-
