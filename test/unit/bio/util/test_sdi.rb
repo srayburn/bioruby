@@ -35,7 +35,7 @@ class TestSDIData
   end
 end # class TestSDIData
 
-class TestSDI_class_methods < Test::Unit::TestCase
+class TestSDIClassMethods < Test::Unit::TestCase
   
   def setup
     @g = Bio::PhyloXML::Parser.open(TestSDIData.gene_xml)
@@ -50,22 +50,22 @@ class TestSDI_class_methods < Test::Unit::TestCase
     assert_instance_of(Bio::PhyloXML::Tree, sdi.species_tree)
   end
   
-  def test_isRooted
+  def test_is_rooted
     sdi = Bio::SDI.new(@g, @s)
-    assert(sdi.isRooted?(@g))
-    assert(sdi.isRooted?(@s))
+    assert(sdi.is_rooted?(@g))
+    assert(sdi.is_rooted?(@s))
   end
  
-  def test_isSubset
+  def test_is_subset
     sdi = Bio::SDI.new(@g, @s)
-    assert(sdi.isSubset?(@s, @g))
+    assert(sdi.is_subset?(@s, @g))
   end
 
-  def test_nodeEqual  
+  def test_node_equal  
     sdi = Bio::SDI.new(@g, @s)
     node1 = sdi.gene_tree.children(sdi.gene_tree.children(sdi.gene_tree.root)[1])[0]
     node2 = sdi.gene_tree.children(sdi.gene_tree.root)[0]
-    assert(!(sdi.nodeEqual?(node1, node2)))
+    assert(!(sdi.node_equal?(node1, node2)))
     
     node1 = nil
     node2 = nil
@@ -80,18 +80,18 @@ class TestSDI_class_methods < Test::Unit::TestCase
         end
       end
     }
-    assert(sdi.nodeEqual?(node1,node2))
+    assert(sdi.node_equal?(node1,node2))
     node1 = sdi.gene_tree.root
     node2 = sdi.gene_tree.children(sdi.gene_tree.root)[1]
     assert_raise RuntimeError do
-      sdi.nodeEqual?(node1,node2)
+      sdi.node_equal?(node1,node2)
     end
       
   end
   
-  def test_initializeMapping
+  def test_initialize_mapping
     sdi = Bio::SDI.new(@g, @s)
-    sdi.initializeMapping
+    sdi.initialize_mapping
     leaves = sdi.species_tree.leaves
      leaves.each { |l|
       max = sdi.species_tree.number_of_nodes + 1
@@ -107,14 +107,14 @@ class TestSDI_class_methods < Test::Unit::TestCase
     assert_not_nil(sdi.gene_mapping)  
   end
 
-  def test_computeMappping
+  def test_compute_mappping
     sdi = Bio::SDI.new(@g, @s)
-    sdi.initializeMapping
-    sdi.computeMapping
+    sdi.initialize_mapping
+    @gene_results = sdi.compute_mapping
     @actual_results = Bio::PhyloXML::Parser.open(TestSDIData.results_xml)
     @actual_results = @actual_results.next_tree
     a_leaves = @actual_results.leaves
-    t_leaves = sdi.gene_tree.leaves
+    g_leaves = @gene_results.leaves
     assert_equal(@actual_results.root.events.speciations, sdi.gene_tree.root.events.speciations)
     assert_equal(@actual_results.root.events.duplications, sdi.gene_tree.root.events.duplications)
     a_children = @actual_results.children(@actual_results.root)
@@ -125,6 +125,6 @@ class TestSDI_class_methods < Test::Unit::TestCase
 
   
 
-  end #class TestSDI_class_methods
+  end #class TestSDIClassMethods
 
  end
