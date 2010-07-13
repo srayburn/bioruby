@@ -24,13 +24,8 @@
 #
 # To compute the speciation and duplication events:
 #
-# sdi.compute_speciation_duplications 
+# updated_tree = sdi.compute_speciation_duplications 
 #
-# and to write the update gene tree output:
-#
-# sdi.writeUpdatedGeneTreePhyloXML('updated_output.xml')
-#
-# where 'updated_output.xml' is replaced by the path to the desired output file.
 #
 # == References
 #
@@ -57,6 +52,8 @@ module Bio
     attr_accessor :species_numbering
     # mapping from integer number to node in species tree
     attr_accessor :spec_node_map
+	# count of duplications
+	attr_accessor :duplications_sum
 
     # The parameters are phyloxml tree objects containing
     # the gene tree and the species tree.
@@ -85,6 +82,7 @@ module Bio
       @gene_mapping = {}
       @species_numbering = {}
       @spec_node_map = {}
+	  @duplications_sum = 0
    
     end #initialize
   
@@ -144,6 +142,7 @@ module Bio
         if (@gene_mapping[node] == @gene_mapping[next_nodes[0]]) || (@gene_mapping[node] == @gene_mapping[next_nodes[1]])
           node.events = Bio::PhyloXML::Events.new
           node.events.duplications = 1
+		  @duplications_sum += 1
         else
           node.events = Bio::PhyloXML::Events.new
           node.events.speciations = 1
@@ -286,4 +285,153 @@ module Bio
     private :_compute_mapping
 
   end
+  
+  class SDI_rerootable < SDI
+    def update_mapping(prev_root_was_dup, prev_root_c1, prev_root_c2)
+	  if (@gene_tree.children(@gene_tree.root)[0] == prev_root_c1) || (@gene_tree.children(@gene_tree.root)[1] == prev_root_c1)
+	    calculate_mapping_for_node( prev_root_c1)
+	  else
+	    calculate_mapping_for_node(prev_root_c2)
+	  end #if
+	  
+	  if prev_root_was_dup
+	    @gene_tree.root.events.duplications += 1
+	  else
+	    @gene_tree.root.events.speciations += 1
+	  end #if
+	  
+	  calculate_mapping_for_node(root)
+	  return @duplications_sum
+	end #update_mapping
+	
+	def calculate_mapping_for_node(node)
+	  if !@gene_tree.leaves.include?(node)
+	    if node.events.duplications > 0
+		  was_duplication = true
+	    else 
+		  was_duplication = false
+		end #if
+	    a = @gene_mapping[@gene_tree.chilren(node)[0]]
+        b = @gene_mapping[@gene_tree.chilren(node)[1]]
+    
+        @gene_mapping[node] = @species_numbering[@species_tree.lowest_common_ancestor(@spec_node_map[a], @spec_node_map[b])]
+ 
+        if (@gene_mapping[node] == @gene_mapping[@gene_tree.children(node)[0]]) || (@gene_mapping[node] == @gene_mapping[@gene_tree.children(node)[1]])
+          root.events = Bio::PhyloXML::Events.new
+          root.events.duplications = 1
+		  if !was_duplication
+		    @duplications_sum += 1
+		  end #if
+        else
+          root.events = Bio::PhyloXML::Events.new
+          root.events.speciations = 1
+        end #if
+      end #if
+	end  #calculate_mapping_for_node(node)
+  end #class
+  
+  class SDIR 
+    attr_accessor :_min_dup
+	def root_and_infer(gene_tree, species_tree)
+	  branch_list = []
+	  rooted_trees = []
+	  prev_root = nil
+	  prev_root_c1 = nil
+	  prev_root_c2 = nil
+	  duplications = 0
+	  @_min_dup = Integer::MAX
+	  prev_root_was_dup = false
+	  # The following is a messy deep copy. Would need to implement clone() for PhyloXML tree object.
+	  g = Marshal::load(Marshal.dump(gene_tree))
+	  
+	  if(leaves.length <= 1)
+	    set_rooted(g, true)
+		@_min_dup = 0
+		tree_array = [g]
+		return tree_array
+	  end #if
+	  
+	  g.nodes.each { |n|
+	    if !g.leaves.include?(n) && (g.children(n).length != 2)
+		  raise "Gene tree must be completely binary."
+		end #if
+	  }
+	  species_tree.each { |n|
+	    if !species_tree.leaves.include?(n) && (species_tree.children(n).length != 2)
+		  raise "Species tree must be completely binary."
+		end #if
+	  }
+	  
+	  g.reroot(g, g.leaves[0])
+	  branches = get_branches_preorder(g)
+	  
+	  sdi  = Bio::SDI_rerootable.new(g, species_tree)
+      duplications = sdi.duplications_sum
+	  used_root_placements = []
+	  
+	  branches.each { |b|
+	    prev_root = g.root
+		prev_root_c1 = g.children(prev_root)[0]
+		prev_root_c2 = g.children(prev_root)[1]
+		prev_root_was_dup = duplication?(prev_root)
+		g.reroot(b)
+		duplications = sdi.update_mapping(prev_root_was_dup, prev_root_c1, prev_root_c2)
+		if !used_root_placements.include?(b)
+		  if duplications < @_min_dup
+			rooted_trees.clear()
+		    rooted_trees.append(Marshal::load(Marshal.dump(g))
+		    @_min_dup = duplications
+		  elsif duplications == @_min_dup
+		    rooted_trees.append(Marshal::load(Marshal.dump(g))
+		  end #if
+		end #if
+		used_root_placements.push(b)
+	  }
+	
+	return rooted_trees
+	
+	end
+	
+	def set_rooted(tree,value)
+	  tree.rooted = value
+	end #set_rooted
+	
+	def reroot(tree, new_root)
+		node1 = tree.children(root)[0]
+		node2 = tree.children(root)[1]
+		tree.remove_node(root)
+		tree.add_edge(node1, node2)
+		tree.root = tree.add_node(Bio::PhyloXML::Node.new)
+	    tree.add_edge(root, tree.parent(new_root))
+		tree.add_edge(root, new_root)
+	end #reroot(new_root)
+	
+	def get_branches_preorder(tree)
+	  b_list = [tree.root]
+	  _get_branches_preorder(tree, tree.children(root)[0], b_list)
+	  _get_branches_preorder(tree, tree.children(root)[1], b_list)
+	  b_list.shift
+	  return b_list
+	end #get_branches_preorder
+	
+	def _get_branches_preorder(tree, node, list)
+	  list.push(node)
+	  _get_branches_preorder(tree, tree.children(node)[0], list)
+	  _get_branches_preorder(tree, tree.children(node)[1], list)	
+	end #_get_branches_preorder
+  
+    def duplication?(node)
+	  return (node.events.duplications > 0)
+	end #duplication?
+  end
+  
+  
+  class PhylogenyBranch
+    attr_accessor :node_from
+	attr_accessor :node_to
+	def initialize(node1, node2)
+	  @node_from = node1
+	  @node_to = node2
+	end #initialize
+  end #class PhylogenyBranch
 end
