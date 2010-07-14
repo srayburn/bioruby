@@ -6,8 +6,8 @@
 #
 # == Description
 #
-# This file contains an implementation of an algorithm to infer gene duplication
-# and speciation events in a rooted binary gene tree where the tree is rerootable. 
+# This file contains an object that finds the rooting of a gene tree that
+# minimizes the number of duplications in the tree. 
 # 
 # == References
 #
@@ -23,38 +23,45 @@ require 'bio/util/SDI/SDI'
 module Bio
   # == Description
   #
-  # Bio::SDI_rerootable implements Speciation/Duplication inferencing for PhyloXML trees where the root can be changed.
+  # Bio::SDIR implements rerooting of gene trees that minimizes the number of duplication
+  # events in the tree.
   #
   # == Usage
-  # 
-  # Inputs to the constructor are a rooted phyloXML formatted binary gene tree and a rooted phyloXML formatted binary species tree.
-  # The external nodes of the species tree must contain all of the species in the external nodes
-  # of the gene tree. 
   #
-  # Example:
-  # 
-  #   require 'bio'
-  #   # Create an instance of sdi algorithm
-  #   # gene_tree and species_tree are Bio::PhyloXML::Tree objects (see phyloxml documentation)
-  #   sdi = Bio::SDI.new(gene_tree, species_tree)  
+  #    # Create an instance of SDIR object
+  #    # gene_tree and species_tree are binary trees in Bio::PhyloXML::Tree objects
+  #    # the gene_tree must be rerootable
+  #    sdir = Bio::SDIR.new(gene_tree, species_tree)
+  #    
+  #    # Find trees with rootings that minimize the number of duplications
+  #    trees = sdir.root_and_infer
   #
-  #   # compute the speciation and duplication events:
-  #   updated_tree = sdi.compute_speciation_duplications 
-  #
-  #   # Print number of duplications
-  #   # puts sdi.duplications_sum
-  #
-
   class SDIR 
+    # integer, minimal number of duplications found
     attr_accessor :_min_dup
+	# Bio::PhyloXML::Tree object containing the gene tree
 	attr_accessor :gene_tree
+	# Bio::PhyloXML::Tree object containing the species tree
 	attr_accessor :species_tree
 	
+	# Create an instance of an SDIR object
+	#    # gene_tree and species_tree are binary trees in Bio::PhyloXML::Tree objects
+    #    # the gene_tree must be rerootable
+    #    sdir = Bio::SDIR.new(gene_tree, species_tree)
+	# ---
+	# *Arguments*:
+	# * (required) _gene_tree_: Bio::PhyloXML::Tree object
+	# * (required) _species_tree_: Bio::PhyloXML::Tree object
+	#
 	def initialize(gene_tree, species_tree)
 	  @gene_tree = gene_tree
 	  @species_tree = species_tree
 	end #initialize
 	
+	# Finds optimal rootings of tree with respect to minimal duplications.
+	#    trees = sdir.root_and_infer
+	# --- 
+	# *Returns*:: Array of Bio::PhyloXML::Tree objects
 	def root_and_infer
 	  branch_list = []
 	  rooted_trees = []
@@ -78,12 +85,12 @@ module Bio
 	    if !g.leaves.include?(n) && (g.children(n).length != 2)
 		  raise "Gene tree must be completely binary."
 		end #if
-	  }
+	  } #end g.nodes.each
 	  species_tree.nodes.each { |n|
 	    if !species_tree.leaves.include?(n) && (species_tree.children(n).length != 2)
 		  raise "Species tree must be completely binary."
 		end #if
-	  }
+	  } #end species_tree.nodes.each
 	 # puts g.leaves[0]
 	  set_rooted(g, true)
 	  reroot(g, g.leaves[0])
@@ -113,20 +120,27 @@ module Bio
 		  end #if
 		end #if
 		used_root_placements.push(b)
-	  }
+	  } #end branches.each
 	
 	return rooted_trees
 	
-	end
+	end #root_and_infer
 	
+	# Set Bio::PhyloXML::Tree.rooted to value
+	# ---
+	# *Arguments*:
+	# * (required) _tree_: Bio::PhyloXML::Tree object
+	# * (required) _value_: Boolean
 	def set_rooted(tree,value)
 	  tree.rooted = value
 	end #set_rooted
 	
+	# Reroot the tree. Called by root_and_infer. Modifies tree in place
+	# ---
+	# *Arguments*:
+	# * (required) _tree_: Bio::PhyloXML::Tree object
+	# * (required) _new_root_: Bio::PhyloXML::Node object
 	def reroot(tree, new_root)
-	    before = Bio::PhyloXML::Writer.new('before.xml')
-		after = Bio::PhyloXML::Writer.new('after.xml')
-		before.write(tree)
 		node1 = tree.children(tree.root)[0]
 		node2 = tree.children(tree.root)[1]
 		node3 = tree.parent(new_root)
@@ -137,51 +151,51 @@ module Bio
 		new_root_node = Bio::PhyloXML::Node.new
 		tree.add_node(new_root_node)
 		tree.root = new_root_node
-		#puts tree.root
-    		tree.add_edge(tree.root, node3)
+   		tree.add_edge(tree.root, node3)
 		tree.add_edge(tree.root, new_root)
 		tree.remove_edge(node3, new_root)
-		
-	after.write(tree)
 	end #reroot(new_root)
 	
+	# Get branches of rooted tree in preorder fashion
+	# Returns a list of nodes, where the branch is 
+	# from the parent of the node to the the node itself.
+	# Called by root_and_infer
+	# ---
+	# *Arguments*:
+	# * (required) _tree_: Bio::PhyloXML::Tree object
+	# *Returns*:: Array of Bio::PhyloXML::Node objects
+	#
 	def get_branches_preorder(tree)
-	  #puts tree.nodes
 	  nodes = [tree.root]
 	  b_list = []
 	  while !nodes.empty?
 	    current = nodes.pop()
-		#puts "nodes length"
-		#puts nodes.length
 		b_list.push(current)
-		#puts "current "
-		#puts current
-		#puts "leaves"
-		#puts tree.leaves
-		
 		if !tree.leaves.include?(current)
-		 # puts "not leaf"
 		  nodes.push(tree.children(current)[0])
 		  nodes.push(tree.children(current)[1])
 		end #if
-		#puts "nodes"
-		#puts nodes
-		#puts "end nodes"
 	  end #while
 
 	  b_list.shift
 	  b_list.shift
 	  b_list.shift
+	  
 	  return b_list
 	end #get_branches_preorder
 	
-  
+    # Is node a duplication?
+	# ---
+	# *Arguments*:
+	# * (required) _node_: Bio::PhyloXML::Node object
+	# *Returns*:: Boolean
+	#
     def duplication?(node)
 	  if node.events != nil
 		return (node.events.duplications > 0)
 	  else return false
 	  end #if
 	end #duplication?
-  end
+  end #class
 
 end #module
