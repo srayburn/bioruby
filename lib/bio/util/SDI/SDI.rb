@@ -1,4 +1,4 @@
-# = util/SDI/sdi_binary.rb - Binary SDI
+# = util/SDI/SDI.rb - Binary SDI
 #
 # Copyright::   Copyright (C) 2010
 #               Sara Rayburn <sararayburn@gmail.com>
@@ -7,24 +7,8 @@
 # == Description
 #
 # This file contains an implementation of an algorithm to infer gene duplication
-# and speciation events in a binary gene tree. 
+# and speciation events in a rooted binary gene tree. 
 #
-# == Usage
-# 
-# Inputs are a phyloXML formatted binary gene tree and a phyloXML formatted binary species tree.
-# The external nodes of the species tree must contain all of the species in the external nodes
-# of the gene tree. The output is an updated phyloXML formatted gene tree.
-#
-# To create an instance of the algorithm:
-#
-# sdi = SDI.new('species.xml', 'gene.xml')
-#
-# where 'species.xml' is replaced by the path to the species tree
-# and 'gene.xml' is replaced by the path to the gene tree
-#
-# To compute the speciation and duplication events:
-#
-# updated_tree = sdi.compute_speciation_duplications 
 #
 #
 # == References
@@ -37,30 +21,62 @@
 
 #  load libraries required
 
-require 'bio/db/phyloxml/phyloxml_parser'
+#require 'bio/db/phyloxml/phyloxml_parser'
 
 module Bio
+  # == Description
+  #
+  # Bio::SDI implements Speciation/Duplication inferencing for PhyloXML trees.
+  #
+  # == Usage
+  # 
+  # Inputs to the constructor are a rooted phyloXML formatted binary gene tree and a rooted phyloXML formatted binary species tree.
+  # The external nodes of the species tree must contain all of the species in the external nodes
+  # of the gene tree. 
+  #
+  # Example:
+  # 
+  #   require 'bio'
+  #   # Create an instance of sdi algorithm
+  #   # gene_tree and species_tree are Bio::PhyloXML::Tree objects (see phyloxml documentation)
+  #   sdi = Bio::SDI.new(gene_tree, species_tree)  
+  #
+  #   # compute the speciation and duplication events:
+  #   updated_tree = sdi.compute_speciation_duplications 
+  #
+  #   # Print number of duplications
+  #   # puts sdi.duplications_sum
+  #
   class SDI
 
-    # rooted binary gene tree
+    # Bio::PhyloXML::Tree object containing rooted binary gene tree
     attr_accessor :gene_tree
-    # rooted binary species tree of all species in gene tree
+    # Bio::PhyloXML::Tree object containing rooted binary species tree of all species in gene tree
     attr_accessor :species_tree
-    # mapping from node in gene tree to integer number
+    # hash mapping from node in gene_tree to integer
     attr_accessor :gene_mapping 
-    # mapping from node in species tree to integer number
+    # hash mapping from node in species_tree to integer 
     attr_accessor :species_numbering
-    # mapping from integer number to node in species tree
+    # hash mapping from integer to node in species_tree
     attr_accessor :spec_node_map
-	# count of duplications
+	# integer count of duplications
 	attr_accessor :duplications_sum
-
-    # The parameters are phyloxml tree objects containing
-    # the gene tree and the species tree.
-    # Raises exception when either tree is empty, unrooted, or 
-    # when the species tree does not contain all species in the gene tree.
+    
+	# Create a new Bio::SDI object
+	#   
+	#    sdi = Bio::SDI.new(gene_tree, species_tree)
+	#    #gene_tree and species_tree are Bio::PhyloXML::Tree objects (see phyloxml documentation)
+    #   
+	# The initialization verifies that trees are non-empty and rooted, and that the species tree leaves
+	# include all of the species represented in the gene tree and raises an exception if any of the 
+	# above conditions fail.
+	# ---
+    # *Arguments*:
+	# * (required) _gene_tree_: Bio::PhyloXML::Tree object
+	# * (required) _species_tree_: Bio::PhyloXML::Tree object
+	#
     def initialize(gene_tree, species_tree)
-      # phyloxml trees 
+      # Bio::PhyloXML::Tree objects
       @gene_tree = gene_tree
       @species_tree = species_tree
 
@@ -85,26 +101,38 @@ module Bio
 	  @duplications_sum = 0
    
     end #initialize
-  
+    
     # Wrapper method for the algorithm. Calls initialization and mapping computation.
+	#    
+	#   updated_tree = sdi.compute_speciation_duplications
+	#
+	# ---
+	# *Returns*:: Bio::PhyloXML::Tree object
+	#
     def compute_speciation_duplications
 
-      initialize_mapping
+      initialize_mapping!
       return compute_mapping
       
     end #compute_speciation_duplications
 
     # Computes the mapping between gene and species trees and updates each clade in 
-    # gene tree to have either a speciation or duplication event. Calls recursive method
+    # gene tree to have either a speciation or duplication event. Traverses
+	# the gene tree in a post order fashion. Calls recursive method
     # _compute_mapping(node). Called by compute_speciation_duplications()
-  
+	# 
+	# Note: Should ONLY be called by wrapper compute_speciation_duplications()
+	# Note to self: Should I go ahead and make this private?
+	# ---
+	# *Returns*:: Bio::PhyloXML::Tree object
+    #
     def compute_mapping 
  
       root = @gene_tree.root
       next_nodes = @gene_tree.children(root)
       next_nodes.each { |n|
         index = _compute_mapping(n) 
-      }
+      } #end each
 
       a = @gene_mapping[next_nodes[0]]
       b = @gene_mapping[next_nodes[1]]
@@ -127,13 +155,18 @@ module Bio
 
     end #compute_mapping
   
-    # Recursive, private helper to compute_mapping(). 
+    # Recursive, private helper to compute_mapping(). Post order traversal of gene tree.
+	# Only called by compute_mapping.
+	# ---
+	# *Arguments*:
+	# * (required) _node_: Bio::PhyloXML::Node object
+	#
     def _compute_mapping(node)  		 #:doc:
      
       next_nodes = @gene_tree.children(node)
       next_nodes.each { |n|
         index = _compute_mapping(n) 
-      }
+      } #end each
       if next_nodes[0] != nil:
         a = @gene_mapping[next_nodes[0]]
         if next_nodes[1] != nil:
@@ -163,8 +196,9 @@ module Bio
     # Numbers nodes of species tree in a preorder fashion.
     # Calls private helper _initialize_species_map()
     # modifies instance variables @species_numbering and @spec_node_map
-  
-    def initialize_species_map
+	# Only called by initialize_mapping!
+	#  
+    def initialize_species_map!
       root = @species_tree.root
       index = 1
     
@@ -174,13 +208,16 @@ module Bio
     
       next_nodes = species_tree.children(root)
       next_nodes.each { |n|
-        index = _initialize_species_map( n, index)
+        index = _initialize_species_map!( n, index)
       }
    
-    end #initialize_species_map
+    end #initialize_species_map!
  
     # recursive, private helper of initialize_species_map()
-    def _initialize_species_map( node, index)         # :doc:
+	# modifies instance variables @species_numbering and @spec_node_map
+	# Only called by initialize_species_map!
+	#
+    def _initialize_species_map!( node, index)         # :doc:
    
       @species_numbering[node] = index
       @spec_node_map[index] = node
@@ -188,19 +225,21 @@ module Bio
    
       next_nodes = species_tree.children(node)
       next_nodes.each{ |n|
-        index = _initialize_species_map( n, index)
+        index = _initialize_species_map!( n, index)
       }
       return index
 
-    end #_initialize_species_map
+    end #_initialize_species_map!
   
     # Implements initialization of algorithm.
     # Numbers species tree nodes in preorder traversal
     # and sets mapping of leaf nodes in gene tree to
     # the mapping of a matching leaf node in the species tree.
-    def initialize_mapping
+	# Calls initialize_species_map.
+	#
+    def initialize_mapping!
      
-      initialize_species_map
+      initialize_species_map!
       index = 0
       @gene_tree.leaves.each{ |n|
         @species_tree.leaves.each{ |s|
@@ -210,10 +249,16 @@ module Bio
          }
       }
  
-    end #initialize_mapping
+    end #initialize_mapping!
 
     # Tests to see if nodes are equivalent. Checks taxonomy id first, then code, then scientific name, then common name.
     # Raises fatal exception if nodes do not have enough information to match.
+	# ---
+	# *Arguments*:
+	# * (required) _node1_: Bio::PhyloXML::Node object
+	# * (required) _node2_: Bio::PhyloXML::Node object
+	# *Returns*:: Boolean
+	#
     def node_equal?(node1, node2)
       if (!node1.taxonomies.empty?) && (!node2.taxonomies.empty?)
       # compare taxonomy id if exists and provider is the same
@@ -256,7 +301,12 @@ module Bio
     
     end #node_equal?
 
-    # Tests tree for root, boolean returning.
+    # Tests tree for root.
+	# ---
+	# *Arguments*:
+	# * (required) _tree_: Bio::PhyloXML::Tree object
+	# *Returns*:: Boolean
+	#
     def is_rooted?(tree)
       if tree.root == nil:
         return false
@@ -266,7 +316,13 @@ module Bio
     
     end #is_rooted?
  
-    # Tests that all leaves in subset are included in leaves of superset
+    # Tests that all leaves in subset tree are included in leaves of superset tree
+	# ---
+	# *Arguments*:
+	# * (required) _superset_: Bio::PhyloXML::Tree object
+	# * (required) _subset_: Bio::PhyloXML::Tree object
+	# *Returns*:: Boolean
+	#
     def is_subset?(superset, subset)
 
       superset_leaves = superset.leaves
@@ -278,23 +334,45 @@ module Bio
           inner = false
           if node_equal?(node, node1)
             inner = true
-            break
+            break # out of superset_each.leaves
           end #if
-        } #superset_leaves.each
+        } #end superset_leaves.each
         if !inner
           return false
         end #if
-      } #subset_leave.each
+      } #end subset_leave.each
       return true
 
     end #is_subset?
  
-    private :_initialize_species_map
+    private :_initialize_species_map!
     private :_compute_mapping
 
   end
-  
+  # == Description
+  #
+  # Bio::SDI_rerootable implements and extension to Speciation/Duplication inferencing for PhyloXML trees 
+  # where the root can be changed. It inherits from Bio::SDI. The extension to the algorithm takes advantage
+  # of the observation that only a few nodes need to change if the root changes.
+  #
+  # == Usage
+  # 
+  # Inputs to the constructor are a rooted phyloXML formatted binary gene tree and a rooted phyloXML formatted binary species tree.
+  # The external nodes of the species tree must contain all of the species in the external nodes
+  # of the gene tree. 
+  #
+  # This object is meant to be used by the SDIR object and not directly by the user. 
+  # Note to self: are there private classes in ruby??
+  #
   class SDI_rerootable < SDI
+    # Updates Events for a rerooted gene tree
+	# ---
+	# *Arguments*:
+	# * (required) _prev_root_was_dup_: Boolean
+	# * (required) _prev_root_c1: Bio::PhyloXML::Node object
+	# * (required) _prev_root_c2: Bio::PhyloXML::Node object
+	# *Returns*:: Integer
+	#
     def update_mapping(prev_root_was_dup, prev_root_c1, prev_root_c2)
 	  if (@gene_tree.children(@gene_tree.root)[0] == prev_root_c1) || (@gene_tree.children(@gene_tree.root)[1] == prev_root_c1)
 	    calculate_mapping_for_node( prev_root_c1)
@@ -317,7 +395,11 @@ module Bio
 	  calculate_mapping_for_node(@gene_tree.root)
 	  return @duplications_sum
 	end #update_mapping
-	
+	# Helper method for update_mapping
+	# ---
+	# *Arguments*:
+	# * (required) _node_: Bio::PhyloXML::Node object
+	#
 	def calculate_mapping_for_node(node)
 	  if !@gene_tree.leaves.include?(node)
 	    if node.events != nil
@@ -349,153 +431,4 @@ module Bio
       end #if
 	end  #calculate_mapping_for_node(node)
   end #class
-  
-  class SDIR 
-    attr_accessor :_min_dup
-	attr_accessor :gene_tree
-	attr_accessor :species_tree
-	
-	def initialize(gene_tree, species_tree)
-	  @gene_tree = gene_tree
-	  @species_tree = species_tree
-	end #initialize
-	
-	def root_and_infer
-	  branch_list = []
-	  rooted_trees = []
-	  prev_root = nil
-	  prev_root_c1 = nil
-	  prev_root_c2 = nil
-	  duplications = 0
-	  @_min_dup = 1000000000000
-	  prev_root_was_dup = false
-	  # The following is a messy deep copy. Would need to implement clone() for PhyloXML tree object.
-	  g = Marshal::load(Marshal.dump(gene_tree))
-	  
-	  if(g.leaves.length <= 1)
-	    set_rooted(g, true)
-		@_min_dup = 0
-		tree_array = [g]
-		return tree_array
-	  end #if
-	  
-	  g.nodes.each { |n|
-	    if !g.leaves.include?(n) && (g.children(n).length != 2)
-		  raise "Gene tree must be completely binary."
-		end #if
-	  }
-	  species_tree.nodes.each { |n|
-	    if !species_tree.leaves.include?(n) && (species_tree.children(n).length != 2)
-		  raise "Species tree must be completely binary."
-		end #if
-	  }
-	 # puts g.leaves[0]
-	  set_rooted(g, true)
-	  reroot(g, g.leaves[0])
-	  branches = get_branches_preorder(g)
-	  
-	  sdi  = Bio::SDI_rerootable.new(g, species_tree)
-	  g = sdi.compute_speciation_duplications 
-      duplications = sdi.duplications_sum
-	  used_root_placements = []
-	  
-	  branches.each { |b|
-	    prev_root = g.root
-		prev_root_c1 = g.children(prev_root)[0]
-		prev_root_c2 = g.children(prev_root)[1]
-		prev_root_was_dup = duplication?(prev_root)
-		reroot(g,b)
-		duplications = sdi.update_mapping(prev_root_was_dup, prev_root_c1, prev_root_c2)
-		puts duplications
-		puts @_min_dup
-		if !used_root_placements.include?(b)
-		  if duplications < @_min_dup
-			rooted_trees.clear()
-		    rooted_trees.push(Marshal::load(Marshal.dump(g)))
-		    @_min_dup = duplications
-		  elsif duplications == @_min_dup
-		    rooted_trees.push(Marshal::load(Marshal.dump(g)))
-		  end #if
-		end #if
-		used_root_placements.push(b)
-	  }
-	
-	return rooted_trees
-	
-	end
-	
-	def set_rooted(tree,value)
-	  tree.rooted = value
-	end #set_rooted
-	
-	def reroot(tree, new_root)
-	    before = Bio::PhyloXML::Writer.new('before.xml')
-		after = Bio::PhyloXML::Writer.new('after.xml')
-		before.write(tree)
-		node1 = tree.children(tree.root)[0]
-		node2 = tree.children(tree.root)[1]
-		node3 = tree.parent(new_root)
-	    prev_root = tree.root
-		
-		tree.remove_node(tree.root)
-		tree.add_edge(node2, node1)
-		new_root_node = Bio::PhyloXML::Node.new
-		tree.add_node(new_root_node)
-		tree.root = new_root_node
-		#puts tree.root
-    		tree.add_edge(tree.root, node3)
-		tree.add_edge(tree.root, new_root)
-		tree.remove_edge(node3, new_root)
-		
-	after.write(tree)
-	end #reroot(new_root)
-	
-	def get_branches_preorder(tree)
-	  #puts tree.nodes
-	  nodes = [tree.root]
-	  b_list = []
-	  while !nodes.empty?
-	    current = nodes.pop()
-		#puts "nodes length"
-		#puts nodes.length
-		b_list.push(current)
-		#puts "current "
-		#puts current
-		#puts "leaves"
-		#puts tree.leaves
-		
-		if !tree.leaves.include?(current)
-		 # puts "not leaf"
-		  nodes.push(tree.children(current)[0])
-		  nodes.push(tree.children(current)[1])
-		end #if
-		#puts "nodes"
-		#puts nodes
-		#puts "end nodes"
-	  end #while
-
-	  b_list.shift
-	  b_list.shift
-	  b_list.shift
-	  return b_list
-	end #get_branches_preorder
-	
-  
-    def duplication?(node)
-	  if node.events != nil
-		return (node.events.duplications > 0)
-	  else return false
-	  end #if
-	end #duplication?
-  end
-  
-  
-  class PhylogenyBranch
-    attr_accessor :node_from
-	attr_accessor :node_to
-	def initialize(node1, node2)
-	  @node_from = node1
-	  @node_to = node2
-	end #initialize
-  end #class PhylogenyBranch
-end
+end #module
