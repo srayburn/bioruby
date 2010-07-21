@@ -90,16 +90,12 @@ module Bio
         raise "Gene and Species trees must be rooted."
       end # if
     
-      # raise exception if species tree does not contain all of gene tree's species
-      if !is_subset?(@species_tree, @gene_tree)
-        raise "All species in gene tree leaf level must be represented in species tree."
-      end #if
-    
       @gene_mapping = {}
       @species_numbering = {}
       @spec_node_map = {}
 	  @duplications_sum = 0
-   
+      @taxonomy_comparison_basis = _determine_taxonomy_comparison_basis
+	  
     end #initialize
     
     # Wrapper method for the algorithm. Calls initialization and mapping computation.
@@ -110,10 +106,8 @@ module Bio
 	# *Returns*:: Bio::PhyloXML::Tree object
 	#
     def compute_speciation_duplications
-
       initialize_mapping!
       return compute_mapping
-      
     end #compute_speciation_duplications
 
     # Computes the mapping between gene and species trees and updates each clade in 
@@ -137,8 +131,14 @@ module Bio
       a = @gene_mapping[next_nodes[0]]
       b = @gene_mapping[next_nodes[1]]
     
-      @gene_mapping[root] = @species_numbering[@species_tree.lowest_common_ancestor(@spec_node_map[a], @spec_node_map[b])]
- 
+	  while a != b
+	    if a > b
+		  a = @species_numbering[@species_tree.parent(@spec_node_map[a])]
+		else
+		  b = @species_numbering[@species_tree.parent(@spec_node_map[b])]
+		end #if
+	  end #while
+      @gene_mapping[root] = a
       if (@gene_mapping[root] == @gene_mapping[next_nodes[0]]) || (@gene_mapping[root] == @gene_mapping[next_nodes[1]])
         if root.events == nil
 		  root.events = Bio::PhyloXML::Events.new
@@ -174,8 +174,15 @@ module Bio
         else 
           b = @gene_mapping[next_nodes[0]]
         end #if  
-    
-        @gene_mapping[node] = @species_numbering[@species_tree.lowest_common_ancestor(@spec_node_map[a], @spec_node_map[b])]
+   	   
+	    while a != b
+	      if a > b
+		    a = @species_numbering[@species_tree.parent(@spec_node_map[a])]
+		  else
+		    b = @species_numbering[@species_tree.parent(@spec_node_map[b])]
+		  end #if
+		end #while
+		@gene_mapping[node] = a
         if (@gene_mapping[node] == @gene_mapping[next_nodes[0]]) || (@gene_mapping[node] == @gene_mapping[next_nodes[1]])
           if node.events == nil
 			node.events = Bio::PhyloXML::Events.new
@@ -240,15 +247,22 @@ module Bio
     def initialize_mapping!
      
       initialize_species_map!
+	  
       index = 0
+	  spec_leaves = {}
+	  @species_tree.leaves.each{ |n|
+	    spec_leaves[taxonomy_to_string(n)] = n
+	  }
+	  
+	
       @gene_tree.leaves.each{ |n|
-        @species_tree.leaves.each{ |s|
-          if node_equal?(n, s)
-            @gene_mapping[n] = @species_numbering[s]
-          end # if
-         }
+	    key = spec_leaves[taxonomy_to_string(n)]
+		if key == nil
+		  raise "All taxonomies in gene tree must be represented in the species tree."
+		end #if
+	    @gene_mapping[n] = @species_numbering[key]
       }
- 
+      
     end #initialize_mapping!
 
     # Tests to see if nodes are equivalent. Checks taxonomy id first, then code, then scientific name, then common name.
@@ -260,45 +274,47 @@ module Bio
 	# *Returns*:: Boolean
 	#
     def node_equal?(node1, node2)
-      if (!node1.taxonomies.empty?) && (!node2.taxonomies.empty?)
-      # compare taxonomy id if exists and provider is the same
-      if (node1.taxonomies[0].taxonomy_id != nil) && (node2.taxonomies[0].taxonomy_id != nil)
-        if (node1.taxonomies[0].taxonomy_id.provider != nil) && (node2.taxonomies[0].taxonomy_id.provider != nil)
-          if node1.taxonomies[0].taxonomy_id.value == node2.taxonomies[0].taxonomy_id.value
-           return true
-          else 
-            return false
-          end # if
-        end #if
-    
-      # otherwise compare code
-      elsif (node1.taxonomies[0].code != nil) && (node2.taxonomies[0].code != nil) 
-        if node1.taxonomies[0].code == node2.taxonomies[0].code
-          return true
-        else 
-          return false
-        end #if
+
+	  
+	  if (!node1.taxonomies.empty?) && (!node2.taxonomies.empty?)
+	  # compare taxonomy id if exists and provider is the same
+	  if (node1.taxonomies[0].taxonomy_id != nil) && (node2.taxonomies[0].taxonomy_id != nil)
+		if (node1.taxonomies[0].taxonomy_id.provider != nil) && (node2.taxonomies[0].taxonomy_id.provider != nil)
+		  if node1.taxonomies[0].taxonomy_id.value == node2.taxonomies[0].taxonomy_id.value
+		   return true
+		  else 
+			return false
+		  end # if
+		end #if
+	
+	  # otherwise compare code
+	  elsif (node1.taxonomies[0].code != nil) && (node2.taxonomies[0].code != nil) 
+		if node1.taxonomies[0].code == node2.taxonomies[0].code
+		  return true
+		else 
+		  return false
+		end #if
   
-      # otherwise compare scientific name
-      elsif (node1.taxonomies[0].scientific_name != nil) && (node2.taxonomies[0].scientific_name != nil)
-        if node1.taxonomies[0].scientific_name == node2.taxonomies[0].scientific_name
-          return true
-        else 
-          return false
-        end #if
+	  # otherwise compare scientific name
+	  elsif (node1.taxonomies[0].scientific_name != nil) && (node2.taxonomies[0].scientific_name != nil)
+		if node1.taxonomies[0].scientific_name == node2.taxonomies[0].scientific_name
+		  return true
+		else 
+		  return false
+		end #if
   
-      # otherwise compare common names
-      elsif (node1.taxonomies[0].common_names[0] != nil) && (node2.taxonomies[0].common_names[0] != nil)
-        if node1.taxonomies[0].common_names[0] == node2.taxonomies[0].common_names[0]
-          return true
-        else 
-          return false
-        end # if
-      end #if  
-      end #if
-      # otherwise, not enough in common to compare
-      raise "Nodes must share an identifier to be compared."
-    
+	  # otherwise compare common names
+	  elsif (node1.taxonomies[0].common_names[0] != nil) && (node2.taxonomies[0].common_names[0] != nil)
+		if node1.taxonomies[0].common_names[0] == node2.taxonomies[0].common_names[0]
+		  return true
+		else 
+		  return false
+		end # if
+	  end #if  
+	  end #if
+	  
+	  # otherwise, not enough in common to compare
+      raise "Nodes must share common attributes in order to be compared"
     end #node_equal?
 
     # Tests tree for root.
@@ -315,38 +331,93 @@ module Bio
       end #if
     
     end #is_rooted?
- 
-    # Tests that all leaves in subset tree are included in leaves of superset tree
+
+    # Determines what taxonomy element is shared by all external nodes in gene & species trees. 
+	# Helper for taxonomy_to_string
+	# ---
+	# *Returns*:: Symbol
+	#
+	def _determine_taxonomy_comparison_basis
+	  all_have_id = true
+	  all_have_code = true
+	  all_have_sn = true
+	  all_have_cn = true
+	  
+	  @species_tree.leaves.each{ |n|
+	    if !n.taxonomies.empty?
+          if n.taxonomies[0].taxonomy_id == nil
+		    all_have_id = false
+		  end
+		  if n.taxonomies[0].code == nil
+		    all_have_code = false
+		  end
+		  if n.taxonomies[0].scientific_name == nil
+		    all_have_sn = false
+		  end
+		  if n.taxonomies[0].common_names.empty?
+		    all_have_cn = false
+		  end
+		else 
+		  raise "Species tree node has no taxonomic information"
+		end #if
+	  } #end species_tree.leaves.each
+	  @gene_tree.leaves.each{ |n|
+	    if !n.taxonomies.empty?
+          if n.taxonomies[0].taxonomy_id == nil
+		    all_have_id = false
+		  end
+		  if n.taxonomies[0].code == nil
+		    all_have_code = false
+		  end
+		  if n.taxonomies[0].scientific_name == nil
+		    all_have_sn = false
+		  end
+		  if n.taxonomies[0].common_names.empty?
+		    all_have_cn = false
+		  end
+		else 
+		  raise "Gene tree node has no taxonomic information"
+		end #if
+	  } #end gene_tree.leaves.each
+	  if all_have_id
+	    return :id
+	  elsif all_have_code
+	    return :code
+	  elsif all_have_sn
+	    return :sn
+	  elsif all_have_cn
+	    return :cn
+	  else
+	    raise "Gene and Species trees have incomparable taxonomies"
+	  end #if
+	end #_determine_taxonomy_comparison_basis
+	
+	# Converts taxonomic information to string for use as key in performance enhancement.
 	# ---
 	# *Arguments*:
-	# * (required) _superset_: Bio::PhyloXML::Tree object
-	# * (required) _subset_: Bio::PhyloXML::Tree object
-	# *Returns*:: Boolean
+	# *(required) _node_: Bio::PhyloXML::Node object
+	# *Returns*:: String
 	#
-    def is_subset?(superset, subset)
-
-      superset_leaves = superset.leaves
-      subset_leaves = subset.leaves
-    
-      subset_leaves.each { |node|
-        inner = false
-        superset_leaves.each{ |node1|
-          inner = false
-          if node_equal?(node, node1)
-            inner = true
-            break # out of superset_each.leaves
-          end #if
-        } #end superset_leaves.each
-        if !inner
-          return false
-        end #if
-      } #end subset_leave.each
-      return true
-
-    end #is_subset?
- 
+	def taxonomy_to_string(node)
+	  case @taxonomy_comparison_basis
+	    when :id
+		  return node.taxonomies[0].taxonomy_id.to_s
+		when :code
+		  return node.taxonomies[0].code.to_s
+		when :sn
+		  return node.taxonomies[0].scientific_name.to_s
+		when :cn
+		  return node.taxonomies[0].common_names[0].to_s
+		else 
+		  raise "Invalid taxonomy comparison code"
+	  end #case
+	end #taxonomy_to_string
+	
+	
+	
     private :_initialize_species_map!
     private :_compute_mapping
+	private :_determine_taxonomy_comparison_basis
 
   end
   # == Description
@@ -431,4 +502,6 @@ module Bio
       end #if
 	end  #calculate_mapping_for_node(node)
   end #class
+  
+	
 end #module
