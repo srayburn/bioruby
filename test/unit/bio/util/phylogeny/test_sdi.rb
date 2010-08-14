@@ -55,34 +55,6 @@ class TestSDIClassMethods < Test::Unit::TestCase
     assert(sdi.is_rooted?(@g))
     assert(sdi.is_rooted?(@s))
   end
- 
-  def test_node_equal  
-    sdi = Bio::Algorithm::SDI.new(@g, @s)
-    node1 = sdi.gene_tree.children(sdi.gene_tree.children(sdi.gene_tree.root)[1])[0]
-    node2 = sdi.gene_tree.children(sdi.gene_tree.root)[0]
-    assert(!(sdi.node_equal?(node1, node2)))
-    
-    node1 = nil
-    node2 = nil
-    leaves = sdi.gene_tree.leaves
-    leaves.each{ |l|
-      if l.taxonomies[0].code == 'MOUSE'
-        if node1 == nil
-          node1 = l
-        else 
-          node2 = l
-          break
-        end
-      end
-    }
-    assert(sdi.node_equal?(node1,node2))
-    node1 = sdi.gene_tree.root
-    node2 = sdi.gene_tree.children(sdi.gene_tree.root)[1]
-    assert_raise RuntimeError do
-      sdi.node_equal?(node1,node2)
-    end
-      
-  end
   
   def test_initialize_mapping
     sdi = Bio::Algorithm::SDI.new(@g, @s)

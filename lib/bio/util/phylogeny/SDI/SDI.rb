@@ -266,57 +266,7 @@ module Bio
         
       end #initialize_mapping!
 
-      # Tests to see if nodes are equivalent. Checks taxonomy id first, then code, then scientific name, then common name.
-      # Raises fatal exception if nodes do not have enough information to match.
-      # ---
-      # *Arguments*:
-      # * (required) _node1_: Bio::PhyloXML::Node object
-      # * (required) _node2_: Bio::PhyloXML::Node object
-      # *Returns*:: Boolean
-      #
-      def node_equal?(node1, node2)
-      
-        if (!node1.taxonomies.empty?) && (!node2.taxonomies.empty?)
-        # compare taxonomy id if exists and provider is the same
-          if (node1.taxonomies[0].taxonomy_id != nil) && (node2.taxonomies[0].taxonomy_id != nil)
-            if (node1.taxonomies[0].taxonomy_id.provider != nil) && (node2.taxonomies[0].taxonomy_id.provider != nil)
-              if node1.taxonomies[0].taxonomy_id.value == node2.taxonomies[0].taxonomy_id.value
-                return true
-              else 
-                return false
-              end # if
-            end #if
-      
-          # otherwise compare code
-          elsif (node1.taxonomies[0].code != nil) && (node2.taxonomies[0].code != nil) 
-            if node1.taxonomies[0].code == node2.taxonomies[0].code
-              return true
-            else 
-              return false
-            end #if
-        
-          # otherwise compare scientific name
-          elsif (node1.taxonomies[0].scientific_name != nil) && (node2.taxonomies[0].scientific_name != nil)
-            if node1.taxonomies[0].scientific_name == node2.taxonomies[0].scientific_name
-              return true
-            else 
-              return false
-            end #if
-        
-          # otherwise compare common names
-          elsif (node1.taxonomies[0].common_names[0] != nil) && (node2.taxonomies[0].common_names[0] != nil)
-            if node1.taxonomies[0].common_names[0] == node2.taxonomies[0].common_names[0]
-              return true
-            else 
-              return false
-            end # if
-          end #if  
-        end #if
-        
-        # otherwise, not enough in common to compare
-        raise "Nodes must share common attributes in order to be compared"
-      end #node_equal?
-
+     
       # Tests tree for root.
       # ---
       # *Arguments*:
