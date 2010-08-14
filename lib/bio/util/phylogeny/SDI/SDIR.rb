@@ -19,6 +19,7 @@
 
 #  load libraries required
 require 'bio/util/phylogeny/SDI/SDI'
+require 'bio/util/phylogeny/SDI/SDI_rerootable'
 
 module Bio
   module Algorithm
