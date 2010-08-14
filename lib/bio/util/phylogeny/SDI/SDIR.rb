@@ -45,7 +45,9 @@ module Bio
       attr_accessor :gene_tree
       # Bio::PhyloXML::Tree object containing the species tree
       attr_accessor :species_tree
-      
+      # integer, number of duplications in final tree
+      attr_accessor :duplications
+           
       # Create an instance of an SDIR object
       #    # gene_tree and species_tree are binary trees in Bio::PhyloXML::Tree objects
       #    # the gene_tree must be rerootable
@@ -58,6 +60,7 @@ module Bio
       def initialize(gene_tree, species_tree)
         @gene_tree = gene_tree
         @species_tree = species_tree
+        @duplications = 0
       end #initialize
       
       # Finds optimal rootings of tree with respect to minimal duplications.
@@ -70,7 +73,7 @@ module Bio
         prev_root = nil
         prev_root_c1 = nil
         prev_root_c2 = nil
-        duplications = 0
+        
         @_min_dup = 1000000000000
         prev_root_was_dup = false
         # The following is a messy deep copy. Would need to implement clone() for PhyloXML tree object.
@@ -100,7 +103,7 @@ module Bio
         
         sdi  = Bio::Algorithm::SDI_rerootable.new(g, species_tree)
         g = sdi.compute_speciation_duplications 
-        duplications = sdi.duplications_sum
+        @duplications = sdi.duplications_sum
         used_root_placements = []
         
         branches.each { |b|
@@ -109,21 +112,21 @@ module Bio
           prev_root_c2 = g.children(prev_root)[1]
           prev_root_was_dup = duplication?(prev_root)
           reroot(g,b)
-          duplications = sdi.update_mapping(prev_root_was_dup, prev_root_c1, prev_root_c2)
-          puts duplications
-          puts @_min_dup
+          @duplications = sdi.update_mapping(prev_root_was_dup, prev_root_c1, prev_root_c2)
+          #puts duplications
+          #puts @_min_dup
           if !used_root_placements.include?(b)
-            if duplications < @_min_dup
+            if @duplications < @_min_dup
               rooted_trees.clear()
               rooted_trees.push(Marshal::load(Marshal.dump(g)))
-              @_min_dup = duplications
-            elsif duplications == @_min_dup
+              @_min_dup = @duplications
+            elsif @duplications == @_min_dup
               rooted_trees.push(Marshal::load(Marshal.dump(g)))
             end #if
           end #if
           used_root_placements.push(b)
         } #end branches.each
-      
+        @duplications = @_min_dup
         return rooted_trees
         
       end #root_and_infer
@@ -147,7 +150,9 @@ module Bio
         node2 = tree.children(tree.root)[1]
         node3 = tree.parent(new_root)
         prev_root = tree.root
-        
+        if prev_root == node3
+          return
+        end #if
         tree.remove_node(tree.root)
         tree.add_edge(node2, node1)
         new_root_node = Bio::PhyloXML::Node.new
