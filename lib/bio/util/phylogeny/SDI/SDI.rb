@@ -146,6 +146,7 @@ module Bio
         root.events = Bio::PhyloXML::Events.new
       end #if
           root.events.duplications = 1
+          @duplications_sum += 1
         else
         if root.events == nil
             root.events = Bio::PhyloXML::Events.new

@@ -46,8 +46,9 @@ module Bio
       # Bio::PhyloXML::Tree object containing the species tree
       attr_accessor :species_tree
       # integer, number of duplications in final tree
-      attr_accessor :duplications
-           
+      attr_accessor :duplications_sum
+      
+  
       # Create an instance of an SDIR object
       #    # gene_tree and species_tree are binary trees in Bio::PhyloXML::Tree objects
       #    # the gene_tree must be rerootable
@@ -60,7 +61,7 @@ module Bio
       def initialize(gene_tree, species_tree)
         @gene_tree = gene_tree
         @species_tree = species_tree
-        @duplications = 0
+        @duplications_sum = 0
       end #initialize
       
       # Finds optimal rootings of tree with respect to minimal duplications.
@@ -96,14 +97,13 @@ module Bio
             raise "Species tree must be completely binary."
           end #if
         } #end species_tree.nodes.each
-        # puts g.leaves[0]
         set_rooted(g, true)
         reroot(g, g.leaves[0])
         branches = get_branches_preorder(g)
         
         sdi  = Bio::Algorithm::SDI_rerootable.new(g, species_tree)
         g = sdi.compute_speciation_duplications 
-        @duplications = sdi.duplications_sum
+        duplications = sdi.duplications_sum
         used_root_placements = []
         
         branches.each { |b|
@@ -112,21 +112,20 @@ module Bio
           prev_root_c2 = g.children(prev_root)[1]
           prev_root_was_dup = duplication?(prev_root)
           reroot(g,b)
-          @duplications = sdi.update_mapping(prev_root_was_dup, prev_root_c1, prev_root_c2)
-          #puts duplications
-          #puts @_min_dup
+          duplications = sdi.update_mapping(prev_root_was_dup, prev_root_c1, prev_root_c2)
+        
           if !used_root_placements.include?(b)
-            if @duplications < @_min_dup
+            if duplications < @_min_dup
               rooted_trees.clear()
               rooted_trees.push(Marshal::load(Marshal.dump(g)))
-              @_min_dup = @duplications
+              @_min_dup = duplications
+              @duplications_sum = @_min_dup
             elsif @duplications == @_min_dup
               rooted_trees.push(Marshal::load(Marshal.dump(g)))
             end #if
           end #if
           used_root_placements.push(b)
         } #end branches.each
-        @duplications = @_min_dup
         return rooted_trees
         
       end #root_and_infer

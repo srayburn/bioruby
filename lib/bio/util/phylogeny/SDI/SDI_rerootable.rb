@@ -34,13 +34,14 @@ module Bio
         
         if prev_root_was_dup
           if @gene_tree.root.events == nil
-          @gene_tree.root.events = Bio::PhyloXML::Events.new
-        end #if
+            @gene_tree.root.events = Bio::PhyloXML::Events.new
+          end #if
           @gene_tree.root.events.duplications = 1
+          @duplications_sum += 1
         else
           if @gene_tree.root.events == nil
-          @gene_tree.root.events = Bio::PhyloXML::Events.new
-        end #if
+            @gene_tree.root.events = Bio::PhyloXML::Events.new
+          end #if
           @gene_tree.root.events.speciations = 1
         end #if
         
@@ -51,32 +52,32 @@ module Bio
       def calculate_mapping_for_node(node)
         if !@gene_tree.leaves.include?(node)
           if node.events != nil
-          if node.events.duplications != nil && node.events.duplications > 0
-            was_duplication = true
-          end #if
-        else 
-          was_duplication = false
-        end #if
-          a = @gene_mapping[@gene_tree.children(node)[0]]
-            b = @gene_mapping[@gene_tree.children(node)[1]]
-        
-            @gene_mapping[node] = @species_numbering[@species_tree.lowest_common_ancestor(@spec_node_map[a], @spec_node_map[b])]
-     
-            if (@gene_mapping[node] == @gene_mapping[@gene_tree.children(node)[0]]) || (@gene_mapping[node] == @gene_mapping[@gene_tree.children(node)[1]])
-              if node.events == nil
-          node.events = Bio::PhyloXML::Events.new
-          end #if
-              node.events.duplications = 1
-          if !was_duplication
-            @duplications_sum += 1
-          end #if
-            else
-          if node.events == nil
-                node.events = Bio::PhyloXML::Events.new
-              end #if
-          node.events.speciations = 1
+            if node.events.duplications != nil && node.events.duplications > 0
+              was_duplication = true
             end #if
+          else 
+            was_duplication = false
           end #if
+          a = @gene_mapping[@gene_tree.children(node)[0]]
+          b = @gene_mapping[@gene_tree.children(node)[1]]
+        
+          @gene_mapping[node] = @species_numbering[@species_tree.lowest_common_ancestor(@spec_node_map[a], @spec_node_map[b])]
+     
+          if (@gene_mapping[node] == @gene_mapping[@gene_tree.children(node)[0]]) || (@gene_mapping[node] == @gene_mapping[@gene_tree.children(node)[1]])
+            if node.events == nil
+              node.events = Bio::PhyloXML::Events.new
+            end #if
+            node.events.duplications = 1
+            if !was_duplication
+              @duplications_sum += 1
+            end #if
+          else
+            if node.events == nil
+              node.events = Bio::PhyloXML::Events.new
+            end #if
+            node.events.speciations = 1
+          end #if
+        end #if
       end  #calculate_mapping_for_node(node)
     end #class
   end #module
