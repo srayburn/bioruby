@@ -98,22 +98,37 @@ module Bio
           end #if
         } #end species_tree.nodes.each
         set_rooted(g, true)
-        reroot(g, g.leaves[0])
-        branches = get_branches_preorder(g)
+        #reroot(g, g.leaves[0])
+        branches = []
+        get_branches_preorder(g, g.root, branches)
+        print branches
         
         sdi  = Bio::Algorithm::SDI_rerootable.new(g, species_tree)
         g = sdi.compute_speciation_duplications 
         duplications = sdi.duplications_sum
-        used_root_placements = []
-        
+        used_root_placements = [] + g.children(g.root)
+        puts duplications
+        puts @_min_dup
+        if duplications < @_min_dup
+          rooted_trees.clear()
+          rooted_trees.push(Marshal::load(Marshal.dump(g)))
+          @_min_dup = duplications
+          @duplications_sum = @_min_dup
+        elsif @duplications == @_min_dup
+          rooted_trees.push(Marshal::load(Marshal.dump(g)))
+        end #if
+
         branches.each { |b|
           prev_root = g.root
+          puts "previous root:"
+          puts prev_root.events
           prev_root_c1 = g.children(prev_root)[0]
           prev_root_c2 = g.children(prev_root)[1]
           prev_root_was_dup = duplication?(prev_root)
           reroot(g,b)
           duplications = sdi.update_mapping(prev_root_was_dup, prev_root_c1, prev_root_c2)
-        
+          puts duplications
+          puts @_min_dup
           if !used_root_placements.include?(b)
             if duplications < @_min_dup
               rooted_trees.clear()
@@ -145,6 +160,12 @@ module Bio
       # * (required) _tree_: Bio::PhyloXML::Tree object
       # * (required) _new_root_: Bio::PhyloXML::Node object
       def reroot(tree, new_root)
+        if new_root == tree.root
+          return
+        end #if
+        if tree.parent(new_root) == tree.root
+          return
+        end #if
         node1 = tree.children(tree.root)[0]
         node2 = tree.children(tree.root)[1]
         node3 = tree.parent(new_root)
@@ -171,24 +192,16 @@ module Bio
       # * (required) _tree_: Bio::PhyloXML::Tree object
       # *Returns*:: Array of Bio::PhyloXML::Node objects
       #
-      def get_branches_preorder(tree)
-        nodes = [tree.root]
-        b_list = []
-        while !nodes.empty?
-          current = nodes.pop()
-          b_list.push(current)
-          if !tree.leaves.include?(current)
-            nodes.push(tree.children(current)[0])
-            nodes.push(tree.children(current)[1])
-          end #if
-        end #while
 
-        b_list.shift
-        b_list.shift
-        b_list.shift
-        
-        return b_list
-      end #get_branches_preorder
+      
+      def get_branches_preorder(tree, node, b_list)
+        b_list.push(node)
+        c = tree.children(node)
+        if !tree.leaves.include?(node)
+          get_branches_preorder(tree, c[0], b_list)
+          get_branches_preorder(tree, c[1], b_list)
+        end #if
+      end #get_branches_preorder(tree, node, b_list)
       
       # Is node a duplication?
       # ---
@@ -198,7 +211,11 @@ module Bio
       #
       def duplication?(node)
         if node.events != nil
-          return (node.events.duplications > 0)
+          if node.events.duplications != nil
+            return (node.events.duplications > 0)
+          else
+            return false
+          end #if
         else 
           return false
         end #if
