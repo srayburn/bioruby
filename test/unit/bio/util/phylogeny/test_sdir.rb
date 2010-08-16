@@ -33,13 +33,16 @@ class TestSDIRData
   def self.species_made_up_xml
     File.join SDIR_TEST_DATA, 'test_S.xml'
   end
-end # class TestSDIData
+  def self.rerootable_xml
+    File.join SDIR_TEST_DATA, 'test_rerootable.xml'
+  end
+end # class TestSDIRData
 
 class TestSDIRClassMethods < Test::Unit::TestCase
    def setup
-    @g = Bio::PhyloXML::Parser.open(TestSDIData.gene_xml)
+    @g = Bio::PhyloXML::Parser.open(TestSDIRData.gene_xml)
     @g = @g.next_tree
-    @s = Bio::PhyloXML::Parser.open(TestSDIData.species_xml)
+    @s = Bio::PhyloXML::Parser.open(TestSDIRData.species_xml)
     @s = @s.next_tree
   end #setup
 
@@ -56,6 +59,30 @@ class TestSDIRClassMethods < Test::Unit::TestCase
     sdi.set_rooted(sdi.species_tree, true)
     assert(sdi.species_tree.root)
   end #test_set_rooted
+  
+  def test_reroot
+    r = Bio::PhyloXML::Parser.open(TestSDIRData.rerootable_xml)
+    r = r.next_tree
+    sdi = Bio::Algorithm::SDIR.new(r, @s)
+    original_nodes = [sdi.gene_tree.root]
+    original_nodes = original_nodes + sdi.gene_tree.children(sdi.gene_tree.root)
+    original_nodes = original_nodes + sdi.gene_tree.children(sdi.gene_tree.children(sdi.gene_tree.root)[0])
+    original_nodes = original_nodes + sdi.gene_tree.children(sdi.gene_tree.children(sdi.gene_tree.root)[1])
+
+    
+
+    #r_original = Marshal::load(Marshal.dump(sdi.gene_tree))
+    previous_root = sdi.gene_tree.root
+    new_root = r.leaves[0]
+    sdi.reroot(sdi.gene_tree, new_root)
+    assert(sdi.gene_tree.root != previous_root)
+    
+    new_nodes = [sdi.gene_tree.root]
+    new_nodes = new_nodes + sdi.gene_tree.children(sdi.gene_tree.root)
+    new_nodes = new_nodes + sdi.gene_tree.children(sdi.gene_tree.children(sdi.gene_tree.root)[0])
+    new_nodes = new_nodes + sdi.gene_tree.children(sdi.gene_tree.children(sdi.gene_tree.root)[1])
+    new_nodes = new_nodes + sdi.gene_tree.children(sdi.gene_tree.children(sdi.gene_tree.children(sdi.gene_tree.root)[0])[0])
+  end #test_reroot
 
 end
 end
