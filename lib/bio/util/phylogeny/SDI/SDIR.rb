@@ -107,8 +107,6 @@ module Bio
         g = sdi.compute_speciation_duplications 
         duplications = sdi.duplications_sum
         used_root_placements = [] + g.children(g.root)
-        puts duplications
-        puts @_min_dup
         if duplications < @_min_dup
           rooted_trees.clear()
           rooted_trees.push(Marshal::load(Marshal.dump(g)))
@@ -120,15 +118,11 @@ module Bio
 
         branches.each { |b|
           prev_root = g.root
-          puts "previous root:"
-          puts prev_root.events
           prev_root_c1 = g.children(prev_root)[0]
           prev_root_c2 = g.children(prev_root)[1]
           prev_root_was_dup = duplication?(prev_root)
           reroot(g,b)
           duplications = sdi.update_mapping(prev_root_was_dup, prev_root_c1, prev_root_c2)
-          puts duplications
-          puts @_min_dup
           if !used_root_placements.include?(b)
             if duplications < @_min_dup
               rooted_trees.clear()
