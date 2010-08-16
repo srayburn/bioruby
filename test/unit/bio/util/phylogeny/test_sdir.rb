@@ -64,12 +64,6 @@ class TestSDIRClassMethods < Test::Unit::TestCase
     r = Bio::PhyloXML::Parser.open(TestSDIRData.rerootable_xml)
     r = r.next_tree
     sdi = Bio::Algorithm::SDIR.new(r, @s)
-    original_nodes = [sdi.gene_tree.root]
-    original_nodes = original_nodes + sdi.gene_tree.children(sdi.gene_tree.root)
-    original_nodes = original_nodes + sdi.gene_tree.children(sdi.gene_tree.children(sdi.gene_tree.root)[0])
-    original_nodes = original_nodes + sdi.gene_tree.children(sdi.gene_tree.children(sdi.gene_tree.root)[1])
-
-    
 
     #r_original = Marshal::load(Marshal.dump(sdi.gene_tree))
     previous_root = sdi.gene_tree.root
@@ -77,12 +71,6 @@ class TestSDIRClassMethods < Test::Unit::TestCase
     sdi.reroot(sdi.gene_tree, new_root)
     assert(sdi.gene_tree.root != previous_root)
     
-    new_nodes = [sdi.gene_tree.root]
-    new_nodes = new_nodes + sdi.gene_tree.children(sdi.gene_tree.root)
-    new_nodes = new_nodes + sdi.gene_tree.children(sdi.gene_tree.children(sdi.gene_tree.root)[0])
-    new_nodes = new_nodes + sdi.gene_tree.children(sdi.gene_tree.children(sdi.gene_tree.root)[1])
-    new_nodes = new_nodes + sdi.gene_tree.children(sdi.gene_tree.children(sdi.gene_tree.children(sdi.gene_tree.root)[0])[0])
-  end #test_reroot
-
+   end
 end
 end
